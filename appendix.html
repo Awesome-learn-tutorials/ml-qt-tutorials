@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>附录：参考资料汇总</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="chapter-header">
+      <span class="chapter-number">附录</span>
+      <h1>参考资料汇总</h1>
+      <p class="chapter-summary">本教程引用和推荐的全部书籍、论文、平台与工具，按类别整理</p>
+    </div>
+
+    <h2>一、经典书籍</h2>
+
+    <table>
+      <tr>
+        <th>书名</th>
+        <th>作者</th>
+        <th>主题</th>
+        <th>相关章节</th>
+      </tr>
+      <tr>
+        <td>Advances in Financial Machine Learning</td>
+        <td>Marcos López de Prado</td>
+        <td>金融ML方法论：标签构造（Triple Barrier）、Purged K-Fold CV、回测过拟合检测、Meta-Labeling、特征重要性</td>
+        <td>第2-9章</td>
+      </tr>
+      <tr>
+        <td>Active Portfolio Management<br>（主动投资组合管理）</td>
+        <td>Grinold & Kahn</td>
+        <td>量化投资"圣经"：信息比率、基本定律（IR=IC×√BR）、Alpha预测、风险模型、组合优化</td>
+        <td>第3、7、8章</td>
+      </tr>
+      <tr>
+        <td>Quantitative Equity Portfolio Management</td>
+        <td>Chincarini & Kim</td>
+        <td>因子模型系统教材：因子构造、组合构建、风险管理的传统方法论</td>
+        <td>第2、4章</td>
+      </tr>
+      <tr>
+        <td>Expected Returns</td>
+        <td>Antti Ilmanen</td>
+        <td>从资产定价角度解释因子为何有效：风险补偿、行为偏差、市场结构</td>
+        <td>第3、4章</td>
+      </tr>
+      <tr>
+        <td>Evidence-Based Technical Analysis</td>
+        <td>David Aronson</td>
+        <td>用统计学方法严格评估技术分析有效性，讨论数据挖掘偏差和多重假设检验</td>
+        <td>第2、5、6章</td>
+      </tr>
+      <tr>
+        <td>Quantitative Risk Management:<br>Concepts, Techniques and Tools</td>
+        <td>McNeil, Frey & Embrechts</td>
+        <td>风险管理学术权威教材：VaR、CVaR、极值理论的数学推导</td>
+        <td>第7章</td>
+      </tr>
+      <tr>
+        <td>打开量化投资的黑箱</td>
+        <td>Rishi K. Narang</td>
+        <td>量化交易系统全景介绍：Alpha模型、风险模型、交易成本模型、执行系统</td>
+        <td>第8章</td>
+      </tr>
+      <tr>
+        <td>算法交易与直接市场接入</td>
+        <td>Barry Johnson</td>
+        <td>执行算法（TWAP、VWAP、Implementation Shortfall）的理论和实现细节</td>
+        <td>第8章</td>
+      </tr>
+      <tr>
+        <td>Fortune's Formula</td>
+        <td>William Poundstone</td>
+        <td>Kelly公式科普：从信息论到赌博到金融投资的传奇历史</td>
+        <td>第5章</td>
+      </tr>
+      <tr>
+        <td>Against the Gods:<br>The Remarkable Story of Risk</td>
+        <td>Peter L. Bernstein</td>
+        <td>人类认识和管理风险的历史，非技术性读物，建立风险管理宏观认知</td>
+        <td>第7章</td>
+      </tr>
+      <tr>
+        <td>量化投资：策略与技术</td>
+        <td>丁鹏</td>
+        <td>中文量化投资入门经典，覆盖策略开发全流程及A股风控实践</td>
+        <td>第7、9章</td>
+      </tr>
+      <tr>
+        <td>量化投资：以Python为工具</td>
+        <td>蔡立耑</td>
+        <td>用Python代码串联量化投资各环节，偏入门级，适合快速上手</td>
+        <td>第6、8章</td>
+      </tr>
+      <tr>
+        <td>A股市场因子投资实证研究</td>
+        <td>石川 等</td>
+        <td>国内学者对A股因子的系统性实证检验，数据处理部分值得精读</td>
+        <td>第2章</td>
+      </tr>
+      <tr>
+        <td>中国股票市场微观结构研究</td>
+        <td>张维、刘熀松 等</td>
+        <td>学术视角分析A股微观结构：集合竞价、涨跌停对价格发现的影响</td>
+        <td>第1章</td>
+      </tr>
+    </table>
+
+    <h2>二、学术论文</h2>
+
+    <table>
+      <tr>
+        <th>论文</th>
+        <th>作者/年份</th>
+        <th>核心贡献</th>
+        <th>相关章节</th>
+      </tr>
+      <tr>
+        <td>"...and the Cross-Section of Expected Returns"</td>
+        <td>Harvey, Liu & Zhu (2016), Review of Financial Studies</td>
+        <td>统计了316个已发表因子，指出多数可能是多重检验产物。提出t>3.0作为新因子最低门槛</td>
+        <td>第3、6章</td>
+      </tr>
+      <tr>
+        <td>"Pseudo-Mathematics and Financial Charlatanism"</td>
+        <td>Marcos López de Prado (2014)</td>
+        <td>批评量化行业中伪回测现象（backtesting as marketing tool）</td>
+        <td>第6章</td>
+      </tr>
+      <tr>
+        <td>"The Deflated Sharpe Ratio"</td>
+        <td>Bailey & López de Prado (2014)</td>
+        <td>提出经多重检验调整后的夏普比率计算方法</td>
+        <td>第6章</td>
+      </tr>
+      <tr>
+        <td>"A New Approach to the Economic Analysis of Nonstationary Time Series and the Business Cycle"</td>
+        <td>Hamilton (1989)</td>
+        <td>Regime Switching模型的开山之作，HMM在金融经济学中的经典应用</td>
+        <td>第5章</td>
+      </tr>
+      <tr>
+        <td>"101 Formulaic Alphas"</td>
+        <td>WorldQuant (Kakushadze, 2016)</td>
+        <td>展示101个公式化Alpha因子定义，因子构造的实用参考</td>
+        <td>第4章</td>
+      </tr>
+    </table>
+
+    <h2>三、开源框架与工具</h2>
+
+    <table>
+      <tr>
+        <th>名称</th>
+        <th>来源</th>
+        <th>用途</th>
+        <th>相关章节</th>
+      </tr>
+      <tr>
+        <td>Qlib</td>
+        <td>微软（Microsoft）</td>
+        <td>AI量化投资研究平台：完整的数据处理→因子计算→模型训练→回测评估 Pipeline，对A股支持良好</td>
+        <td>第4、5、8、9章</td>
+      </tr>
+      <tr>
+        <td>Alphalens</td>
+        <td>Quantopian（开源）</td>
+        <td>因子分析工具：IC分析、分层收益、换手率统计</td>
+        <td>第3、9章</td>
+      </tr>
+      <tr>
+        <td>Backtrader</td>
+        <td>开源社区</td>
+        <td>Python回测框架，事件驱动，支持自定义交易逻辑</td>
+        <td>第1、6章</td>
+      </tr>
+      <tr>
+        <td>Zipline</td>
+        <td>Quantopian（开源）</td>
+        <td>事件驱动回测引擎，与Alphalens配合使用</td>
+        <td>第6章</td>
+      </tr>
+      <tr>
+        <td>VectorBT</td>
+        <td>开源社区</td>
+        <td>向量化回测框架，速度极快，适合大规模参数扫描</td>
+        <td>第6章</td>
+      </tr>
+      <tr>
+        <td>LightGBM / XGBoost</td>
+        <td>Microsoft / DMLC</td>
+        <td>梯度提升树模型，量化选股的主流模型选择</td>
+        <td>第4、9章</td>
+      </tr>
+      <tr>
+        <td>Tushare Pro</td>
+        <td>tushare.pro</td>
+        <td>A股Python数据接口：行情、财务、基本面等数据获取</td>
+        <td>第2章</td>
+      </tr>
+    </table>
+
+    <h2>四、量化研究平台</h2>
+
+    <table>
+      <tr>
+        <th>平台</th>
+        <th>特点</th>
+        <th>适用场景</th>
+      </tr>
+      <tr>
+        <td>聚宽（JoinQuant）</td>
+        <td>国内主流量化平台，数据完整，研究文档丰富，因子研究系列文章质量高</td>
+        <td>策略研发、因子回测、入门学习</td>
+      </tr>
+      <tr>
+        <td>米筐（RiceQuant）</td>
+        <td>因子库覆盖数百因子，每个因子有完整定义和历史表现文档</td>
+        <td>因子研究、组合回测</td>
+      </tr>
+      <tr>
+        <td>优矿（Uqer）</td>
+        <td>通联数据旗下，数据质量好，API设计清晰</td>
+        <td>策略快速验证</td>
+      </tr>
+      <tr>
+        <td>BigQuant</td>
+        <td>集成深度学习框架，面向AI量化</td>
+        <td>深度学习在量化中的应用研究</td>
+      </tr>
+    </table>
+
+    <h2>五、官方文件与行业标准</h2>
+
+    <table>
+      <tr>
+        <th>文件/标准</th>
+        <th>来源</th>
+        <th>内容</th>
+        <th>相关章节</th>
+      </tr>
+      <tr>
+        <td>上海证券交易所交易规则（2023修订版）</td>
+        <td>上交所官网</td>
+        <td>竞价方式、涨跌幅限制、停复牌等规则的权威来源</td>
+        <td>第1章</td>
+      </tr>
+      <tr>
+        <td>深圳证券交易所交易规则</td>
+        <td>深交所官网</td>
+        <td>与上交所大体一致，创业板相关规则有所不同</td>
+        <td>第1章</td>
+      </tr>
+      <tr>
+        <td>Barra CNE5 / CNE6 风险模型文档</td>
+        <td>MSCI</td>
+        <td>A股版本的多因子风险模型，定义10个风格因子+30+行业因子，机构风控行业标准</td>
+        <td>第3、7章</td>
+      </tr>
+    </table>
+
+    <h2>六、券商研报与中文社区</h2>
+
+    <div class="info-box">
+      <p><strong>券商金融工程团队研报</strong></p>
+      <ul>
+        <li><strong>华泰证券金工团队</strong>—— 因子选股、指数增强策略的系统性研究，更新频繁</li>
+        <li><strong>海通证券金工团队</strong>—— 多因子模型和风险模型的深度研究</li>
+        <li><strong>天风证券金工团队</strong>—— 择时策略、市场情绪指标的研究</li>
+        <li><strong>招商证券金工团队</strong>—— 另类数据和事件驱动因子的探索</li>
+      </ul>
+      <p>获取途径：Wind金融终端、各券商官方App、研报搜索平台（如慧博投研）</p>
+    </div>
+
+    <div class="info-box">
+      <p><strong>中文社区</strong></p>
+      <ul>
+        <li><strong>知乎量化相关专栏</strong>—— 有大量实盘经验分享，质量参差不齐，建议以批判性思维阅读</li>
+        <li><strong>雪球实盘组合</strong>—— 可观察策略的真实运行表现</li>
+        <li><strong>SSRN / arXiv（q-fin分区）</strong>—— 量化金融最新学术论文，推荐关注因子投资、ML应用、市场微观结构方向</li>
+      </ul>
+    </div>
+
+    <h2>七、学习路径建议</h2>
+
+    <div class="summary-box">
+      <h3>按阶段推荐</h3>
+      <table>
+        <tr>
+          <th>阶段</th>
+          <th>优先阅读</th>
+          <th>目标</th>
+        </tr>
+        <tr>
+          <td>入门（0-3个月）</td>
+          <td>《量化投资：策略与技术》+ 聚宽平台文档 + 本教程</td>
+          <td>建立全局认知，能跑通一个简单策略</td>
+        </tr>
+        <tr>
+          <td>进阶（3-6个月）</td>
+          <td>Advances in Financial Machine Learning + Qlib实践</td>
+          <td>掌握ML在金融中的正确用法，避免常见陷阱</td>
+        </tr>
+        <tr>
+          <td>深入（6-12个月）</td>
+          <td>Active Portfolio Management + Barra模型文档 + 券商研报</td>
+          <td>理解机构级策略框架，具备独立研发能力</td>
+        </tr>
+        <tr>
+          <td>前沿（持续）</td>
+          <td>arXiv q-fin + 顶会论文（KDD/AAAI金融track）</td>
+          <td>跟踪最新方法，保持策略迭代</td>
+        </tr>
+      </table>
+    </div>
+
+    <nav class="chapter-nav">
+      <a href="ch09.html">← 第九章：实操案例</a>
+      <span></span>
+    </nav>
+  </div>
+</body>
+</html>

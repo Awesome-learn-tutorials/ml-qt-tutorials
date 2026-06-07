@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>基于机器学习的量化交易教程</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .toc-item {
+      display: flex;
+      align-items: baseline;
+      padding: 16px 0;
+      border-bottom: 1px solid #e2e8f0;
+      text-decoration: none;
+      color: inherit;
+      transition: background 0.15s;
+      margin: 0 -12px;
+      padding-left: 12px;
+      padding-right: 12px;
+      border-radius: 4px;
+    }
+    .toc-item:hover {
+      background: #ebf8ff;
+    }
+    .toc-number {
+      font-size: 0.85em;
+      color: #718096;
+      min-width: 60px;
+      font-weight: 600;
+    }
+    .toc-content {
+      flex: 1;
+    }
+    .toc-title {
+      font-size: 1.1em;
+      font-weight: 600;
+      color: #1a365d;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .toc-desc {
+      font-size: 0.9em;
+      color: #4a5568;
+      line-height: 1.5;
+    }
+    .toc-section-header {
+      margin-top: 40px;
+      margin-bottom: 8px;
+      font-size: 0.85em;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #1a365d;
+    }
+    .intro-text {
+      font-size: 1.05em;
+      color: #4a5568;
+      line-height: 1.9;
+      margin: 24px 0 40px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="chapter-header">
+      <h1>基于机器学习的量化交易教程</h1>
+      <p class="chapter-summary">面向ML从业者的A股量化交易知识体系</p>
+    </div>
+
+    <div class="intro-text">
+      <p>本教程面向有机器学习背景、希望进入量化交易领域的读者。内容侧重交易侧知识——市场规则、因子框架、策略构建、风险管理——帮助你将已有的ML技能正确地应用到金融投资中。</p>
+    </div>
+
+    <div class="toc-section-header">基础篇</div>
+
+    <a class="toc-item" href="ch01.html">
+      <span class="toc-number">第一章</span>
+      <div class="toc-content">
+        <span class="toc-title">A股市场机制与交易规则</span>
+        <span class="toc-desc">交易所结构、T+1制度、涨跌停、集合竞价——这些规则如何转化为模型约束</span>
+      </div>
+    </a>
+
+    <a class="toc-item" href="ch02.html">
+      <span class="toc-number">第二章</span>
+      <div class="toc-content">
+        <span class="toc-title">行情数据与金融特征工程</span>
+        <span class="toc-desc">金融数据的特殊性：低信噪比、非平稳、序列相关，以及数据处理中的陷阱</span>
+      </div>
+    </a>
+
+    <a class="toc-item" href="ch03.html">
+      <span class="toc-number">第三章</span>
+      <div class="toc-content">
+        <span class="toc-title">因子投资框架</span>
+        <span class="toc-desc">Alpha因子与风险因子、经典因子分类、因子生命周期、A股特有因子</span>
+      </div>
+    </a>
+
+    <div class="toc-section-header">策略篇</div>
+
+    <a class="toc-item" href="ch04.html">
+      <span class="toc-number">第四章</span>
+      <div class="toc-content">
+        <span class="toc-title">基于ML的因子选股策略</span>
+        <span class="toc-desc">选股即排序：标签构造、模型选择、组合构建、调仓设计的完整Pipeline</span>
+      </div>
+    </a>
+
+    <a class="toc-item" href="ch05.html">
+      <span class="toc-number">第五章</span>
+      <div class="toc-content">
+        <span class="toc-title">市场状态识别与ML择时</span>
+        <span class="toc-desc">Regime识别、择时信号类型、仓位管理、止盈止损设计</span>
+      </div>
+    </a>
+
+    <div class="toc-section-header">验证篇</div>
+
+    <a class="toc-item" href="ch06.html">
+      <span class="toc-number">第六章</span>
+      <div class="toc-content">
+        <span class="toc-title">回测方法论与常见陷阱</span>
+        <span class="toc-desc">未来信息泄露、过拟合、幸存者偏差、样本划分——回测中的致命错误</span>
+      </div>
+    </a>
+
+    <a class="toc-item" href="ch07.html">
+      <span class="toc-number">第七章</span>
+      <div class="toc-content">
+        <span class="toc-title">风险度量与基础风控</span>
+        <span class="toc-desc">Sharpe/Sortino/Calmar、最大回撤、VaR/CVaR、风控规则设计</span>
+      </div>
+    </a>
+
+    <div class="toc-section-header">落地篇</div>
+
+    <a class="toc-item" href="ch08.html">
+      <span class="toc-number">第八章</span>
+      <div class="toc-content">
+        <span class="toc-title">策略组合与实盘落地</span>
+        <span class="toc-desc">多策略配置、滑点与冲击成本、执行算法、策略监控与持续迭代</span>
+      </div>
+    </a>
+
+    <a class="toc-item" href="ch09.html">
+      <span class="toc-number">第九章</span>
+      <div class="toc-content">
+        <span class="toc-title">实操案例：从零构建一个多因子选股策略</span>
+        <span class="toc-desc">以中证500增强策略为例，9个步骤走完全流程——每步说明做什么、为什么、易犯的错</span>
+      </div>
+    </a>
+
+    <div class="toc-section-header">进阶篇</div>
+
+    <a class="toc-item" href="ch10.html">
+      <span class="toc-number">第十章</span>
+      <div class="toc-content">
+        <span class="toc-title">当前市场最有效的三类量化策略</span>
+        <span class="toc-desc">高频量价因子、深度学习端到端选股、日内回转交易——头部机构超额收益的核心来源</span>
+      </div>
+    </a>
+
+    <div class="toc-section-header">附录</div>
+
+    <a class="toc-item" href="appendix.html">
+      <span class="toc-number">附录</span>
+      <div class="toc-content">
+        <span class="toc-title">参考资料汇总</span>
+        <span class="toc-desc">全部书籍、论文、开源工具、平台与学习路径推荐</span>
+      </div>
+    </a>
+
+  </div>
+</body>
+</html>

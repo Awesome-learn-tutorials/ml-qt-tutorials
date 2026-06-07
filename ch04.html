@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第四章：基于ML的因子选股策略</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+
+    <div class="chapter-header">
+      <p class="chapter-number">第四章</p>
+      <h1>基于ML的因子选股策略</h1>
+      <p class="chapter-summary">将选股问题转化为ML可以处理的排序问题，构建从因子到持仓的完整流水线</p>
+    </div>
+
+    <!-- Section 1: 引言 -->
+    <h2>1. 引言</h2>
+    <p>在A股量化投资的众多策略类型中，因子选股策略是最主流、最成熟的方向。其核心思想是：通过量化指标（因子）对股票池中的所有股票进行评估和排序，选出未来一段时间表现最好的一篮子股票构建投资组合。</p>
+    <p>传统的多因子模型通常使用线性加权的方式组合因子，例如为价值因子赋权30%、动量因子赋权20%等。这种方法简单直觉，但存在一个根本局限：它假设因子与收益之间是线性关系。然而真实市场中充满了非线性效应——例如"低市盈率但高负债"的股票并不一定便宜，"高动量但处于行业衰退期"的股票动量可能随时反转。</p>
+    <p>机器学习（ML）为因子选股带来了强大的非线性建模能力。一个GBDT模型可以自动发现"当PE低于15且ROE高于20%时买入"这样的条件组合，而无需人工指定交互项。但ML的引入并非简单地把数据扔进模型就行——我们需要仔细思考：</p>
+    <ul>
+      <li><strong>问题如何定义？</strong>是分类问题还是回归问题？还是其他？</li>
+      <li><strong>标签如何构造？</strong>用原始收益还是超额收益？</li>
+      <li><strong>因子从哪里来？</strong>是手工构造还是自动挖掘？</li>
+      <li><strong>模型输出如何变成持仓？</strong>打分之后的组合构建流程是什么？</li>
+      <li><strong>调仓频率如何决定？</strong>频率越高信号衰减越少，但交易成本也越高。</li>
+    </ul>
+    <p>本章将系统回答这些问题，帮助你从零构建一个完整的ML选股策略Pipeline。</p>
+
+    <!-- Section 2: 问题定义 -->
+    <h2>2. 问题定义：选股即排序</h2>
+    <p>初学者最常犯的错误是把选股问题定义为二分类问题：预测每只股票未来是"涨"还是"跌"。这看起来很自然——如果模型能准确预测涨跌，我们买入预测为"涨"的股票不就行了吗？</p>
+    <p>但仔细想想就会发现问题：在牛市中几乎所有股票都涨，分类模型会预测大部分股票为"涨"；在熊市中大部分都跌，模型会告诉你什么都别买。这并不是我们想要的——我们想要的是在任何市场环境下，都能找到<strong>相对表现最好</strong>的那批股票。</p>
+
+    <div class="info-box">
+      <p><strong>核心认知转变：</strong></p>
+      <p>选股 ≠ 分类（涨/跌）</p>
+      <p>选股 = 横截面排序（在3000+只股票中找出未来表现最好的N只）</p>
+    </div>
+
+    <p>为什么排序优于分类？有以下几个关键原因：</p>
+    <ul>
+      <li><strong>不需要绝对预测准确性：</strong>我们不需要知道某只股票到底能涨多少，只需要知道它比其他股票表现更好。即使模型预测所有股票都跌，只要排序正确，我们选出的股票跌得最少（甚至做多空策略还能赚钱）。</li>
+      <li><strong>对市场环境鲁棒：</strong>排序问题天然对冲了市场整体方向。无论牛熊，横截面上总有相对强弱之分。</li>
+      <li><strong>评估指标更合理：</strong>分类问题用accuracy，但accuracy=60%的模型可能完全没有选股能力；排序问题用IC（Information Coefficient），IC=0.05就已经是非常好的选股信号了。</li>
+      <li><strong>与投资流程更匹配：</strong>实际投资中，我们总是从股票池中选出Top-K只股票构建组合，这本身就是一个排序→截断的过程。</li>
+    </ul>
+    <p>从ML的视角看，选股问题最接近的范式是<strong>Learning to Rank</strong>。我们可以使用pointwise（对每只股票独立预测分数）、pairwise（预测两只股票的相对顺序）、或listwise（直接优化整个排名列表）的方法。在实践中，pointwise方法（即对每只股票预测一个连续分数，然后按分数排序）因为简单有效，是最常用的做法。</p>
+
+    <!-- Section 3: Label构造 -->
+    <h2>3. Label（标签）构造</h2>
+    <p>标签是ML模型的学习目标。在选股问题中，标签代表"未来这只股票表现如何"。看似简单，但标签的构造方式会深刻影响模型的行为和策略的特征。</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Label类型</th>
+          <th>定义</th>
+          <th>优点</th>
+          <th>缺点</th>
+          <th>T+1处理</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>原始收益率</td>
+          <td>close(t+n)/close(t+1) - 1</td>
+          <td>直觉简单，易于理解</td>
+          <td>受市场beta影响大，牛市全部为正</td>
+          <td>t+1开盘价为买入基准</td>
+        </tr>
+        <tr>
+          <td>行业超额收益</td>
+          <td>个股收益 - 行业均值收益</td>
+          <td>去除行业影响，聚焦个股alpha</td>
+          <td>行业分类标准（申万/中信）影响结果</td>
+          <td>同上</td>
+        </tr>
+        <tr>
+          <td>市场超额收益</td>
+          <td>个股收益 - 指数收益</td>
+          <td>去除系统性风险，适合对冲策略</td>
+          <td>指数选择（沪深300/中证500）有影响</td>
+          <td>同上</td>
+        </tr>
+        <tr>
+          <td>排名分位数</td>
+          <td>收益排名 / 总股票数</td>
+          <td>分布均匀，无异常值干扰</td>
+          <td>丢失绝对收益信息</td>
+          <td>同上</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>为什么T+1处理至关重要？</h3>
+    <p>这是A股ML选股中最容易犯的致命错误。逻辑链如下：</p>
+    <ul>
+      <li>模型使用的特征（因子）基于今天<strong>收盘时</strong>的数据计算——例如今天的收盘价、成交量、财报数据等。</li>
+      <li>模型在今天收盘后运行，产生选股信号。</li>
+      <li>信号产生后，你最早能执行交易的时间是<strong>明天开盘</strong>。</li>
+      <li>因此，标签应该从明天的开盘价开始计算，而非今天的收盘价。</li>
+    </ul>
+    <p>如果标签用了<code>close(t+n)/close(t)-1</code>（从今天收盘算），那么模型学到的"收益"包含了从今天收盘到明天开盘的隔夜跳空部分。但实际交易中你拿不到这个隔夜收益（因为你是在明天开盘才买入的）。这会导致回测收益虚高，实盘远不及预期——这就是所谓的<strong>前视偏差（Look-ahead Bias）</strong>。</p>
+    <p>正确的做法是：<code>label = close(t+n) / open(t+1) - 1</code>，或者更保守地使用<code>vwap(t+1)</code>（明天的成交量加权平均价）作为买入基准，因为实际交易很难精确在开盘价成交。</p>
+
+    <h3>标签周期的选择</h3>
+    <p>标签的预测周期（上面公式中的n）也需要仔细考虑：</p>
+    <ul>
+      <li><strong>n=5（周度收益）：</strong>适合短期因子，但噪声大，需要更多数据来训练。</li>
+      <li><strong>n=10（双周收益）：</strong>信噪比适中，是主流选择。</li>
+      <li><strong>n=20（月度收益）：</strong>信号更稳定，但因子有效性衰减更快。</li>
+    </ul>
+    <p>标签周期应与调仓频率匹配：如果你的策略每两周调一次仓，标签就应该用10天收益。否则会出现"模型预测的是一个月后的表现，但你两周就换仓了"的不匹配问题。</p>
+
+    <!-- Section 4: 因子挖掘方法 -->
+    <h2>4. 因子挖掘方法</h2>
+    <p>因子（Feature）是选股模型的输入。一个好的因子应该对未来股票收益有预测能力。因子的来源可以从最原始的领域知识，逐步演进到自动化的因子挖掘方法。</p>
+
+    <div class="flowchart-vertical">
+      <div class="flow-step">领域知识（经验因子）</div>
+      <div class="flow-arrow-down">&#8595;</div>
+      <div class="flow-step">手工构造（公式化因子）</div>
+      <div class="flow-arrow-down">&#8595;</div>
+      <div class="flow-step">遗传编程（自动表达式搜索）</div>
+      <div class="flow-arrow-down">&#8595;</div>
+      <div class="flow-step">ML交互（模型自动学习因子组合）</div>
+      <div class="flow-arrow-down">&#8595;</div>
+      <div class="flow-step">因子库（数百个候选因子）</div>
+    </div>
+
+    <h3>层级一：领域知识（经验因子）</h3>
+    <p>最早的因子来源于投资经验的总结。比如"便宜的股票长期表现好"催生了价值因子（PE、PB），"过去涨得好的股票短期会继续涨"催生了动量因子，"小公司长期跑赢大公司"催生了市值因子。这些经验因子经过学术研究的严格验证，在全球市场都有一定的有效性。A股中常用的经验因子类别包括：价值（PE/PB/PS）、成长（营收增速/净利增速）、质量（ROE/毛利率）、动量（过去N日收益）、波动率（收益标准差）、流动性（换手率）等。</p>
+
+    <h3>层级二：手工构造（公式化因子）</h3>
+    <p>在经验因子的基础上，量化研究员会使用数学公式构造更精细的因子。例如：</p>
+    <ul>
+      <li><strong>改进的动量因子：</strong>不用简单的过去20日收益，而是用"过去20日收益减去最大单日涨幅"——因为单日暴涨往往不可持续。</li>
+      <li><strong>量价背离因子：</strong>价格创新高但成交量萎缩 → 上涨动力不足。公式化为"价格排名-成交量排名"。</li>
+      <li><strong>资金流因子：</strong>大单买入金额/大单卖出金额，衡量主力资金方向。</li>
+    </ul>
+    <p>手工因子的优点是可解释性强，可以直觉验证其合理性；缺点是受制于研究员的想象力和时间，无法穷举所有可能的因子形式。</p>
+
+    <h3>层级三：遗传编程（自动表达式搜索）</h3>
+    <p>遗传编程（Genetic Programming, GP）是一种自动化因子挖掘方法。它定义一组基础算子（加、减、乘、除、rank、delay、correlation等）和基础数据（open、high、low、close、volume），然后通过模拟进化过程（交叉、变异、选择）自动搜索有效的因子表达式。例如GP可能发现这样一个因子：<code>rank(correlation(close, volume, 10)) * ts_std(close/open, 5)</code>。</p>
+    <p>GP的优点是搜索空间巨大，能发现人类不易想到的因子；缺点是生成的因子往往缺乏经济学直觉，且容易过拟合（在训练集上表现好但样本外失效）。WorldQuant的Alpha#101因子集就是GP方法的经典应用。</p>
+
+    <h3>层级四：ML交互（模型自动学习因子组合）</h3>
+    <p>最高层次是让ML模型本身来学习因子的组合方式。例如深度学习模型可以输入原始的OHLCV数据，自动学习有效的特征表示。典型代表包括：</p>
+    <ul>
+      <li><strong>TabNet：</strong>自动进行特征选择和组合。</li>
+      <li><strong>Autoencoder：</strong>学习因子的低维表示，实现降维和去噪。</li>
+      <li><strong>Transformer：</strong>通过Attention机制自动捕捉因子间的交互关系。</li>
+    </ul>
+    <p>这种方法的优点是端到端学习，不需要人工设计因子组合规则；缺点是对数据量要求高，可解释性差，且训练不稳定。</p>
+
+    <h3>实践建议</h3>
+    <p>在实际构建因子库时，建议采用分层策略：先用经验因子建立baseline（通常50-100个因子），再用GP补充自动挖掘的因子（可能带来额外100-200个），最后通过ML模型自动处理因子间的非线性交互。最终一个成熟的因子库可能包含300-500个候选因子，但经过筛选后实际使用的通常在50-150个之间。</p>
+
+    <!-- Section 5: 模型选择的交易视角 -->
+    <h2>5. 模型选择的交易视角</h2>
+    <p>在传统ML项目中，我们根据accuracy、F1-score、MSE等指标选择模型。但在量化选股中，模型评估需要从交易的视角出发——一个"学术上更好"的模型在实际交易中未必更优。</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>模型类型</th>
+          <th>IC表现</th>
+          <th>换手率</th>
+          <th>可解释性</th>
+          <th>训练成本</th>
+          <th>适用场景</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>线性模型（OLS/Ridge）</td>
+          <td>一般，IC 0.03-0.05</td>
+          <td>低换手</td>
+          <td>高</td>
+          <td>低</td>
+          <td>大容量稳健策略</td>
+        </tr>
+        <tr>
+          <td>树模型（GBDT/XGBoost）</td>
+          <td>较高，IC 0.04-0.07</td>
+          <td>中等换手</td>
+          <td>中</td>
+          <td>中</td>
+          <td>主流选择，平衡各方面</td>
+        </tr>
+        <tr>
+          <td>神经网络（MLP/LSTM）</td>
+          <td>可能最高</td>
+          <td>高换手</td>
+          <td>低</td>
+          <td>高</td>
+          <td>高频或研究探索</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="info-box">
+      <p><strong>交易视角的评估标准：</strong></p>
+      <p>在量化选股中，我们不看accuracy/MSE，而是关注以下指标：</p>
+      <ul>
+        <li><strong>IC（Information Coefficient）：</strong>模型预测分数与未来收益的rank correlation，衡量排序能力。IC=0.05已是优秀水平。</li>
+        <li><strong>IR（Information Ratio）：</strong>IC的均值/IC的标准差，衡量信号的稳定性。IR&gt;0.5表示信号稳定可靠。</li>
+        <li><strong>换手率：</strong>每次调仓时持仓变动的比例，直接决定交易成本。</li>
+        <li><strong>最大回撤：</strong>策略从峰值到谷值的最大跌幅，衡量尾部风险。</li>
+      </ul>
+      <p><strong>关键洞察：</strong>一个IC=0.05但换手30%的模型可能不如IC=0.04换手15%的模型。因为高换手带来的交易成本可能吃掉额外的alpha收益。需要计算：净IC = 毛IC - 换手率 × 单位交易成本。</p>
+    </div>
+
+    <h3>为什么复杂模型换手率更高？</h3>
+    <p>这是一个重要但常被忽视的问题。复杂模型（如深度神经网络）对输入数据的微小变化非常敏感——今天的输入和明天的输入即使只有微小差异，模型输出的排序可能剧烈变动。这意味着今天的Top-50股票和明天的Top-50可能有20只不同，导致40%的换手率。</p>
+    <p>相比之下，线性模型因为决策函数简单平滑，输入的微小变化只会导致输出的微小变化，排序变动较少，换手率自然较低。</p>
+    <p>实践中的应对方法：</p>
+    <ul>
+      <li><strong>增加正则化：</strong>L2正则化使模型参数更平滑，减少对噪声的过度反应。</li>
+      <li><strong>使用多期平均：</strong>不用单次模型输出作为信号，而是取最近3-5期预测的平均值。</li>
+      <li><strong>设置换仓阈值：</strong>只有当排名变化超过一定幅度时才调整持仓。</li>
+      <li><strong>在损失函数中加入换手惩罚：</strong>直接将换手率作为训练目标的一部分。</li>
+    </ul>
+
+    <!-- Section 6: 组合构建流程 -->
+    <h2>6. 组合构建流程</h2>
+    <p>模型输出的是每只股票的预测分数，但分数本身不是持仓。从分数到最终持仓，需要经过一系列组合构建步骤。这个过程决定了策略的风险暴露特征。</p>
+
+    <div class="flowchart">
+      <div class="flow-step">模型打分</div>
+      <div class="flow-arrow">&#8594;</div>
+      <div class="flow-step">Top-K筛选</div>
+      <div class="flow-arrow">&#8594;</div>
+      <div class="flow-step">行业中性化</div>
+      <div class="flow-arrow">&#8594;</div>
+      <div class="flow-step">市值中性化</div>
+      <div class="flow-arrow">&#8594;</div>
+      <div class="flow-step">权重分配</div>
+      <div class="flow-arrow">&#8594;</div>
+      <div class="flow-step">持仓组合</div>
+    </div>
+
+    <h3>Step 1: Top-K筛选</h3>
+    <p>从模型对全市场3000+只股票的打分中，选出分数最高的Top-K只股票作为候选持仓。K的选择需要平衡：</p>
+    <ul>
+      <li><strong>K太小（如20只）：</strong>集中度过高，个股风险大，单只股票暴雷可能导致组合大幅回撤。</li>
+      <li><strong>K太大（如200只）：</strong>分散化过度，选股alpha被稀释，接近指数表现。</li>
+      <li><strong>主流选择：K = 50-100。</strong>在分散风险和保留alpha之间取得平衡。</li>
+    </ul>
+
+    <h3>Step 2: 行业中性化</h3>
+    <p>行业中性化的目标是消除组合的行业偏差。如果不做行业中性，模型可能在某些时期集中选出同一行业的股票（例如全是新能源），导致组合表现完全取决于该行业的涨跌。</p>
+    <p>实现方法：按行业分组，每个行业内选出等比例的股票。例如如果电子行业在全市场占10%，那么持仓100只股票中应有约10只来自电子行业。具体操作：</p>
+    <ul>
+      <li>方法一：按基准指数的行业权重分配各行业持股数量。</li>
+      <li>方法二：在每个行业内部分别选取Top-N只股票（N与行业市值成正比）。</li>
+    </ul>
+
+    <h3>Step 3: 市值中性化</h3>
+    <p>类似地，市值中性化避免组合过度偏向大盘或小盘。A股中小盘股历史上有显著的超额收益（小市值效应），如果不做市值中性，模型很容易学会"无脑买小盘股"——但这个效应在2017年后已经大幅衰减，暴露小盘风险可能带来剧烈回撤。</p>
+    <p>实现方法：将股票按市值分为若干档（如大盘、中盘、小盘），确保组合在每个市值档的配比与基准一致。</p>
+
+    <h3>Step 4: 权重分配</h3>
+    <p>确定了持仓股票后，需要决定每只股票买多少。常见的权重方案：</p>
+    <ul>
+      <li><strong>等权重（Equal Weight）：</strong>每只股票分配相同的资金比例。简单且分散，是最常用的baseline。</li>
+      <li><strong>分数加权（Score-weighted）：</strong>模型分数越高的股票权重越大。增加了对高信心股票的暴露，但集中度也更高。</li>
+      <li><strong>风险平价（Risk-parity）：</strong>波动率低的股票给更高权重，使每只股票对组合风险的贡献相等。降低了组合整体波动，但计算更复杂。</li>
+      <li><strong>最大化预期收益（Mean-Variance Optimization）：</strong>经典的Markowitz优化，但对参数估计极其敏感，实践中不稳定。</li>
+    </ul>
+    <p>对于初学者，强烈建议从等权重开始。等权重虽然朴素，但稳健性好，不会因为权重优化的误差而引入额外风险。</p>
+
+    <!-- Section 7: 调仓设计 -->
+    <h2>7. 调仓设计</h2>
+    <p>调仓频率是策略设计中的关键决策。它直接影响策略的信号利用效率和交易成本。核心矛盾是：因子信号会随时间衰减（持有越久alpha越少），但频繁调仓带来的交易成本也会侵蚀收益。</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>调仓频率</th>
+          <th>预期年化换手率</th>
+          <th>单边交易成本（年化）</th>
+          <th>适用因子</th>
+          <th>注意事项</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>周度</td>
+          <td>20-30倍</td>
+          <td>成本高（约6-9%）</td>
+          <td>短期动量/反转</td>
+          <td>需低手续费账户</td>
+        </tr>
+        <tr>
+          <td>双周</td>
+          <td>12-18倍</td>
+          <td>成本中（约3.6-5.4%）</td>
+          <td>中期因子</td>
+          <td>主流选择</td>
+        </tr>
+        <tr>
+          <td>月度</td>
+          <td>6-10倍</td>
+          <td>成本低（约1.8-3%）</td>
+          <td>基本面因子</td>
+          <td>适合大资金</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="warning-box">
+      <p><strong>换手率陷阱</strong></p>
+      <p>交易成本的计算经常被低估。假设策略年化换手20倍（即每年整个持仓被换了20遍），单边交易成本约千二（包括佣金万一 + 印花税万五 + 冲击成本千一）：</p>
+      <p><strong>年交易成本 = 20 × 2 × 0.2% = 8%</strong></p>
+      <p>这意味着你的策略毛收益率必须超过12%才能覆盖交易成本！如果毛收益只有15%，扣完成本后只剩3%——还不如买理财产品。一定要在回测中精确计算交易成本，而非在回测结束后才考虑。</p>
+    </div>
+
+    <h3>调仓频率的确定方法</h3>
+    <p>最科学的方法是做因子衰减分析（IC Decay Analysis）：计算因子在T+1、T+2、...、T+20天后的IC值，观察IC随时间衰减的速度。</p>
+    <ul>
+      <li>如果IC在5天后就衰减到接近0 → 因子是短期有效的 → 需要周度调仓。</li>
+      <li>如果IC在10天后仍保持较好水平 → 因子是中期有效的 → 适合双周调仓。</li>
+      <li>如果IC在20天后才明显衰减 → 因子是长期有效的 → 月度调仓即可。</li>
+    </ul>
+    <p>另一个实用技巧是<strong>分批调仓</strong>：例如双周调仓策略可以改为每周调一半仓位。这样做的好处是平滑了交易冲击，降低了"在最差时点一次性全部换仓"的风险，同时也部分利用了短期信号。</p>
+
+    <!-- Section 8: 完整Pipeline总览 -->
+    <h2>8. 完整Pipeline总览</h2>
+    <p>把前面所有环节串联起来，一个完整的ML选股策略Pipeline如下：</p>
+
+    <div class="flowchart">
+      <div class="flow-step">数据获取</div>
+      <div class="flow-arrow">&#8594;</div>
+      <div class="flow-step">因子计算</div>
+      <div class="flow-arrow">&#8594;</div>
+      <div class="flow-step">截面标准化</div>
+      <div class="flow-arrow">&#8594;</div>
+      <div class="flow-step">ML模型训练</div>
+      <div class="flow-arrow">&#8594;</div>
+      <div class="flow-step">样本外预测</div>
+      <div class="flow-arrow">&#8594;</div>
+      <div class="flow-step">组合优化</div>
+      <div class="flow-arrow">&#8594;</div>
+      <div class="flow-step">风控过滤</div>
+      <div class="flow-arrow">&#8594;</div>
+      <div class="flow-step">交易执行</div>
+    </div>
+
+    <h3>各环节详解</h3>
+    <ul>
+      <li><strong>数据获取：</strong>收集股票行情（OHLCV）、财务报表、行业分类、指数成分等数据。注意数据的时点正确性——财报数据要使用实际公告日期而非报告期。</li>
+      <li><strong>因子计算：</strong>基于原始数据计算各类因子值。需要处理停牌、涨跌停、新股等特殊情况。</li>
+      <li><strong>截面标准化：</strong>对每个截面日期（每天），将所有因子做z-score标准化或rank标准化。目的是消除不同因子量纲差异，同时保证时间序列上的可比性。这一步极为重要——如果不做标准化，模型会被量纲较大的因子主导。</li>
+      <li><strong>ML模型训练：</strong>使用历史数据训练模型。必须使用滚动窗口或扩展窗口方式，严格保证训练数据在时间上早于测试数据（前面章节详述的时序交叉验证）。</li>
+      <li><strong>样本外预测：</strong>用训练好的模型对最新截面数据做预测，输出每只股票的分数。</li>
+      <li><strong>组合优化：</strong>将模型分数转化为目标持仓，包括Top-K筛选、中性化、权重分配等步骤。</li>
+      <li><strong>风控过滤：</strong>剔除不满足交易条件的股票：ST股票、停牌股、上市不满60天的新股、涨停无法买入的股票等。这一步看似简单但实际非常重要，忽略会导致回测失真。</li>
+      <li><strong>交易执行：</strong>将目标持仓与当前持仓对比，生成买卖交易指令。考虑最小下单数量（100股整数倍）、涨跌停限制等约束。</li>
+    </ul>
+
+    <h3>Pipeline中的常见陷阱</h3>
+    <ul>
+      <li><strong>财报数据的时点偏差：</strong>某公司一季报在4月30日才公告，但报告期是3月31日。如果在4月1日就使用了一季报数据作为因子，就引入了前视偏差。必须使用"实际公告日期"而非"报告期"来对齐数据。</li>
+      <li><strong>存活者偏差：</strong>只用当前在市的股票做回测，忽略了历史上退市的股票。这些退市股往往在退市前表现极差，忽略它们会高估策略收益。正确做法是使用point-in-time数据，包含历史上所有曾经存在的股票。</li>
+      <li><strong>截面标准化的时间泄露：</strong>标准化时用了整个时间段的均值和标准差。正确做法是每个截面独立标准化（只用当天的全市场数据计算均值标准差）。</li>
+    </ul>
+
+    <!-- Section 9: 与ML建模的关联 -->
+    <h2>9. 与ML建模的关联</h2>
+    <p>如果你有机器学习背景但对量化交易不熟悉，以下对应关系可以帮助你快速理解选股策略的ML本质：</p>
+
+    <div class="ml-bridge">
+      <p><strong>ML概念 → 选股对应</strong></p>
+      <ul>
+        <li><strong>Learning to Rank（排序学习）</strong> ≈ 选股排序 — 搜索引擎根据相关性排序网页，选股模型根据预期收益排序股票。核心目标一致：找到最优排序。</li>
+        <li><strong>Feature Importance（特征重要性）</strong> ≈ 因子贡献度 — 通过SHAP值或permutation importance分析哪些因子对选股决策贡献最大，帮助理解模型行为。</li>
+        <li><strong>Regularization（L1/L2正则化）</strong> ≈ 换手约束 — L2正则化使模型权重平滑变化，对应到选股就是减少了每期持仓的剧烈变动（降低换手率）。L1正则化使部分因子权重为零，对应到因子筛选。</li>
+        <li><strong>Ensemble（集成学习）</strong> ≈ 多因子组合 — 单个决策树不稳定但Random Forest稳定，单个因子有噪声但多因子组合的信号更可靠。</li>
+        <li><strong>Cross-Validation（交叉验证）</strong> ≈ 滚动回测 — 标准K-fold在时序数据中会导致时间泄露，对应到选股就是使用滚动窗口（Walk-forward）方式训练和验证。</li>
+      </ul>
+      <p><strong>关键差异提醒：</strong>虽然ML概念可以迁移，但金融数据有一个根本区别——信噪比极低。在图像识别中正确率99%很常见，但在选股中IC=0.05（相当于解释了不到1%的方差）就已经是很好的信号了。这要求我们在建模时更加注重过拟合防控。</p>
+    </div>
+
+    <!-- Section 10: 本章小结 -->
+    <h2>10. 本章小结</h2>
+
+    <div class="summary-box">
+      <h3>本章要点回顾</h3>
+      <ul>
+        <li><strong>选股是排序问题：</strong>不需要预测绝对涨跌，只需排出横截面相对强弱。IC是核心评估指标。</li>
+        <li><strong>标签构造决定策略特征：</strong>原始收益、超额收益、排名分位数各有优缺点；T+1处理是避免前视偏差的关键。</li>
+        <li><strong>因子来源分层：</strong>从经验因子到GP自动挖掘到ML端到端学习，复杂度递增但过拟合风险也递增。</li>
+        <li><strong>模型选择看交易指标：</strong>IC和换手率的组合比单纯的预测精度更重要。GBDT是当前的主流选择。</li>
+        <li><strong>组合构建不可忽视：</strong>行业中性化和市值中性化保证alpha来自选股而非风格暴露。</li>
+        <li><strong>交易成本是硬约束：</strong>换手率 × 交易成本 = 策略能否盈利的底线。高频调仓需要极高的信号质量才能覆盖成本。</li>
+        <li><strong>Pipeline环节众多：</strong>每个环节的错误都可能导致回测失真。前视偏差和存活者偏差是最常见的两个坑。</li>
+      </ul>
+    </div>
+
+    <!-- Section 11: 延伸阅读 -->
+    <h2>11. 延伸阅读</h2>
+
+    <div class="reading-list">
+      <h3>推荐资料</h3>
+      <ul>
+        <li><strong>《Advances in Financial Machine Learning》- Marcos Lopez de Prado：</strong>金融ML领域的经典著作，特别是关于标签构造（Triple Barrier Method）和交叉验证（Purged K-Fold）的章节。</li>
+        <li><strong>《Quantitative Equity Portfolio Management》- Chincarini & Kim：</strong>系统介绍了因子模型、组合构建和风险管理的传统方法论。</li>
+        <li><strong>Qlib（微软开源量化平台）：</strong>提供了完整的ML选股Pipeline实现，包括因子计算、模型训练、回测评估，是快速上手实践的好工具。</li>
+        <li><strong>Alpha#101论文（WorldQuant）：</strong>《101 Formulaic Alphas》，展示了101个公式化因子的定义，是理解因子构造的优秀参考。</li>
+        <li><strong>《Expected Returns》- Antti Ilmanen：</strong>从资产定价的角度解释各类因子为什么有效（风险补偿、行为偏差、市场结构），帮助建立因子的经济学直觉。</li>
+        <li><strong>聚宽/优矿/RiceQuant平台：</strong>提供A股数据和回测环境，可以快速验证本章介绍的选股策略。</li>
+        <li><strong>Learning to Rank相关论文：</strong>LambdaMART、RankNet等排序学习算法，可以直接应用于选股排序问题。</li>
+      </ul>
+    </div>
+
+    <!-- Navigation -->
+    <div class="chapter-nav">
+      <a href="ch03.html">&larr; 上一章：数据处理与特征工程</a>
+      <a href="ch05.html">下一章：回测与评估体系 &rarr;</a>
+    </div>
+
+  </div>
+</body>
+</html>
